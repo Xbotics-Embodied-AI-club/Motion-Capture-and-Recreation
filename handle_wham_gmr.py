@@ -374,10 +374,12 @@ class _HeadlessViewer:
                  camera_lookat_height_offset=0.50, camera_elevation=-28.0,
                  camera_distance_scale=1.70, camera_azimuth=None,
                  robot_path=None, **_kwargs):
-        from general_motion_retargeting.params import ROBOT_XML_DICT, ROBOT_BASE_DICT, VIEWER_CAM_DISTANCE_DICT
+        from general_motion_retargeting.params import (
+            ROBOT_XML_DICT, ROBOT_BASE_DICT, VIEWER_CAM_DISTANCE_DICT, as_mujoco_path,
+        )
 
         xml_path = robot_path if robot_path and str(robot_path).strip() else ROBOT_XML_DICT[robot_type]
-        self.model = mj.MjModel.from_xml_path(str(xml_path))
+        self.model = mj.MjModel.from_xml_path(as_mujoco_path(xml_path))
         self.data = mj.MjData(self.model)
         self.robot_base = ROBOT_BASE_DICT[robot_type]
         self.viewer_cam_distance = VIEWER_CAM_DISTANCE_DICT[robot_type]
@@ -498,6 +500,16 @@ def run_stream_mt(
             torch.backends.cuda.matmul.allow_tf32 = True
         if hasattr(torch.backends, 'cudnn'):
             torch.backends.cudnn.allow_tf32 = True
+        # 6GB cards fail cuDNN's convolution algorithm search: every candidate
+        # asks for a large workspace, cudaMalloc fails, and PyTorch reports
+        # "Unable to find a valid cuDNN algorithm". Native convs avoid that.
+        total_vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024 ** 3)
+        if total_vram_gb < 8:
+            torch.backends.cudnn.enabled = False
+            logger.info(
+                f"GPU VRAM {total_vram_gb:.1f} GB < 8 GB: cuDNN disabled so convolution "
+                "does not allocate a multi-GB workspace"
+            )
 
     def autocast_ctx():
         if use_amp:

@@ -5,7 +5,7 @@ import numpy as np
 import json
 import os
 from scipy.spatial.transform import Rotation as R
-from .params import ROBOT_XML_DICT, IK_CONFIG_DICT
+from .params import ROBOT_XML_DICT, IK_CONFIG_DICT, as_mujoco_path
 from rich import print
 
 class GeneralMotionRetargeting:
@@ -25,9 +25,9 @@ class GeneralMotionRetargeting:
 
         # load the robot model
         if robot_path is not None and str(robot_path).strip() != "":
-            self.xml_file = str(robot_path)
+            self.xml_file = as_mujoco_path(robot_path)
         else:
-            self.xml_file = str(ROBOT_XML_DICT[tgt_robot])
+            self.xml_file = as_mujoco_path(ROBOT_XML_DICT[tgt_robot])
 
         if not os.path.exists(self.xml_file):
             raise FileNotFoundError(f"Robot xml not found: {self.xml_file}")

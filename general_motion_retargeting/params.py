@@ -1,8 +1,26 @@
+import os
 import pathlib
 
 HERE = pathlib.Path(__file__).parent
 IK_CONFIG_ROOT = HERE / "ik_configs"
 ASSET_ROOT = HERE / ".." / "assets"
+
+
+def as_mujoco_path(path) -> str:
+    """Return a path MuJoCo can open on Windows.
+
+    MjModel.from_xml_path uses the ANSI code page. An absolute path that
+    contains characters outside that page, such as a Chinese directory name,
+    fails even when the file exists. A path relative to the current working
+    directory avoids putting those characters in the string MuJoCo receives.
+    """
+    path = os.fspath(path)
+    if not os.path.isabs(path):
+        return path
+    try:
+        return os.path.relpath(path, os.getcwd())
+    except ValueError:
+        return path
 
 ROBOT_XML_DICT = {
     "unitree_g1": ASSET_ROOT / "unitree_g1" / "g1_mocap_29dof.xml",

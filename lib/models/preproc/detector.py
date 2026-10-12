@@ -108,12 +108,29 @@ class DetectionModel(object):
         bbox[:, 2] = bbox[:, 2] * s_factor / 200.0
         self.tracking_results['bbox'] = bbox
     
+    def _predict_bboxes(self, img):
+        """Run YOLO on self.device. A failed cuDNN search must not fall back to CPU:
+        the failed workspace allocations already exhaust process commit charge, and
+        the next tiny CPU allocation then fails as well.
+        """
+        kwargs = dict(classes=0, conf=BBOX_CONF, save=False, verbose=False, device=self.device)
+        try:
+            return self.bbox_model.predict(img, **kwargs)[0].boxes.xyxy.detach().cpu().numpy()
+        except RuntimeError as exc:
+            message = str(exc)
+            if "cuDNN" not in message and "out of memory" not in message.lower():
+                raise
+            print("[detector] YOLO cuDNN search failed; retrying on GPU with cuDNN disabled.")
+            self.bbox_model.predictor = None
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            torch.backends.cudnn.enabled = False
+            return self.bbox_model.predict(img, **kwargs)[0].boxes.xyxy.detach().cpu().numpy()
+
     def track(self, img, fps, length):
         
         # bbox detection
-        bboxes = self.bbox_model.predict(
-            img, device=self.device, classes=0, conf=BBOX_CONF, save=False, verbose=False
-        )[0].boxes.xyxy.detach().cpu().numpy()
+        bboxes = self._predict_bboxes(img)
         bboxes = [{'bbox': bbox} for bbox in bboxes]
         
         # keypoints detection

@@ -8,6 +8,7 @@ import imageio
 import glfw
 from scipy.spatial.transform import Rotation as R
 from general_motion_retargeting import ROBOT_XML_DICT, ROBOT_BASE_DICT, VIEWER_CAM_DISTANCE_DICT
+from general_motion_retargeting.params import as_mujoco_path
 from loop_rate_limiters import RateLimiter
 import numpy as np
 from rich import print
@@ -68,8 +69,9 @@ class RobotMotionViewer:
     ):
 
         self.robot_type = robot_type
-        self.xml_path = robot_path if robot_path is not None and str(robot_path).strip() != "" else ROBOT_XML_DICT[robot_type]
-        self.model = mj.MjModel.from_xml_path(str(self.xml_path))
+        xml_path = robot_path if robot_path is not None and str(robot_path).strip() != "" else ROBOT_XML_DICT[robot_type]
+        self.xml_path = as_mujoco_path(xml_path)
+        self.model = mj.MjModel.from_xml_path(self.xml_path)
         self.data = mj.MjData(self.model)
         self.robot_base = ROBOT_BASE_DICT[robot_type]
         self.viewer_cam_distance = VIEWER_CAM_DISTANCE_DICT[robot_type]
